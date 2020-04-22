@@ -30,7 +30,7 @@
     <div id="header">
 
         <div id="explainer">
-          <p>This interactive charts the <b><i>new</i></b> {{selectedData.toLowerCase()}} of COVID-19 in the past week vs. the <b><i>total</i></b> {{selectedData.toLowerCase()}} to date. When plotted in this way, exponential growth is represented as a straight line that slopes upwards. Notice that almost all countries follow a very similar path of exponential growth. <i>We're all in this together.</i> <span v-if="isHidden"><a @click="toggleHide">Learn more.</a></span></p>
+          <p>This interactive charts the <b><i>new</i></b> {{selectedData.toLowerCase()}} of COVID-19 in the past week vs. the <b><i>total</i></b> {{selectedData.toLowerCase()}} to date. When plotted in this way, exponential growth is represented as a straight line that slopes upwards. Notice that almost all states follow a very similar path of exponential growth. <i>We're all in this together.</i> <span v-if="isHidden"><a @click="toggleHide">Learn more.</a></span></p>
 
           <span v-if="!isHidden">
 
@@ -94,7 +94,7 @@
         <div v-if="!firstLoad && covidData.length == 0" id="nodata"><span>Not enough data for these parameters.</span></div>
 
         <div id="footer">
-          Created by <a href="https://aatishb.com/">Aatish Bhatia</a> in collaboration with <a href="https://www.youtube.com/user/minutephysics">Minute Physics</a> &middot; World data provided by <a href="https://github.com/CSSEGISandData/COVID-19">Johns Hopkins University</a> (updated daily around 00:00 UTC / 20:00 ET) &middot; US state data provided by <a href="https://github.com/nytimes/covid-19-data">NYTimes</a> (updated daily around 16:00 UTC / 12:00 ET)&middot; Shortcuts: +/- for daily changes, space to play/pause &middot; <a href="https://github.com/aatishb/covidtrends#credits">Credits & Source</a> &middot; <a href="https://www.cdc.gov/coronavirus/2019-ncov/prepare/prevention.html">Stay safe!</a>
+          <a href="https://github.com/aatishb/covidtrends">Original dashboard</a> by <a href="https://aatishb.com/">Aatish Bhatia</a> in collaboration with <a href="https://www.youtube.com/user/minutephysics">Minute Physics</a> &middot; Modified for Indian states by <a href="https://youtube.com/indiainpixels">India in Pixels</a> &middot; India data provided by <a href="https://www.covid19india.org/">covid19india.org</a> 
         </div>
 
       </div>
@@ -110,11 +110,11 @@
             </option>
           </select>
 
-          <select v-model="selectedRegion" @mousedown="pause">
+          <!-- <select v-model="selectedRegion" @mousedown="pause">
             <option v-for="s in regions" v-bind:value="s">
               {{ s }}
             </option>
-          </select>
+          </select> -->
 
           <select v-model="selectedScale" @mousedown="pause">
             <option v-for="s in scale" v-bind:value="s">
@@ -127,9 +127,6 @@
         <div id="countries">
 
           <h2>{{regionType}}</h2>
-
-          <p>{{regionType}} with at least {{minCasesInCountry}} {{selectedData}}</p>
-
           <div id="search">
             <input v-model="searchField" placeholder="Search"></input>
           </div>

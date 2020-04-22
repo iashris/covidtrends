@@ -285,31 +285,17 @@ let app = new Vue({
     },
 
     pullData(selectedData, selectedRegion, updateSelectedCountries = true) {
-
-      if (selectedRegion != 'US') {
-        let url;
-        if (selectedData == 'Confirmed Cases') {
-         url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv';
-        } else if (selectedData == 'Reported Deaths') {
-         url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv';
-        } else {
-          return;
-        }
-        Plotly.d3.csv(url, (data) => this.processData(data, selectedRegion, updateSelectedCountries));
-      } else { // selectedRegion == 'US'
-        const type = (selectedData == 'Reported Deaths') ? 'deaths' : 'cases'
-        const url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv';
-        Plotly.d3.csv(url, (data) => this.processData(this.preprocessNYTData(data, type), selectedRegion, updateSelectedCountries));
-      }
+       url = 'https://api.rootnet.in/covid19-in/unofficial/covid19india.org/statewise/history';
+        Plotly.d3.json(url, (data) => this.processData(data, selectedData, updateSelectedCountries));
     },
 
     removeRepeats(array) {
       return [...new Set(array)];
     },
 
-    groupByCountry(data, dates, regionsToPullToCountryLevel /* pulls out Hong Kong & Macau from region to country level */) {
+    groupByCountry(data, dates /* pulls out Hong Kong & Macau from region to country level */) {
 
-      let countries = data.map(e => e['Country/Region']);
+      let countries = data.map(e => e['name']);
       countries = this.removeRepeats(countries);
 
       let grouped = [];
@@ -317,8 +303,7 @@ let app = new Vue({
 
         // filter data for this country (& exclude regions we're pulling to country level)
         // e.g. Mainland China numbers should not include Hong Kong & Macau, to avoid double counting
-        let countryData = data.filter(e => e['Country/Region'] == country)
-          .filter(e => !regionsToPullToCountryLevel.includes(e['Province/State']));
+        let countryData = data.filter(e => e['name'] == country);
 
         const row = {region: country}
 
@@ -335,62 +320,38 @@ let app = new Vue({
     },
 
     filterByCountry(data, dates, selectedRegion) {
-      return data.filter(e => e['Country/Region'] == selectedRegion)
-          .map(e => ({...e, region: e['Province/State']}));
+      return data.filter(e => e['name'] == selectedRegion);
     },
 
-    convertStateToCountry(data, dates, selectedRegion) {
-      return data.filter(e => e['Province/State'] == selectedRegion)
-          .map(e => ({...e, region: e['Province/State']}));
-    },
-
-    processData(data, selectedRegion, updateSelectedCountries) {
-      let dates = Object.keys(data[0]).slice(4);
+    processData(dataW, selectedData, updateSelectedCountries) {
+      const days = dataW.data.history;
+      const toExtract = selectedData === "Confirmed Cases" ? "confirmed" : "deaths";
+      const allStates = days[0].statewise.map(v=>v.state);
+      const data =  allStates.map(state => {
+        const toRet = {name: state};
+        days.forEach(day => {
+          const kernel = day.statewise.find(v => v.state === state);
+          if(kernel){
+            toRet[day.day] = kernel[toExtract];
+          }
+        })
+        return toRet;
+      })
+      
+      let dates = days.map(d=>d.day).slice(4);
       this.dates = dates;
       this.day = this.dates.length;
 
-      let regionsToPullToCountryLevel = ['Hong Kong', 'Macau']
-
-      let grouped;
-
-      if (selectedRegion == 'World') {
-        grouped = this.groupByCountry(data, dates, regionsToPullToCountryLevel);
-
-        // pull Hong Kong and Macau to Country level
-        for (let region of regionsToPullToCountryLevel) {
-          let country = this.convertStateToCountry(data, dates, region);
-          if (country.length === 1) {
-            grouped = grouped.concat(country);
-          }
-        }
-
-      } else {
-        grouped = this.filterByCountry(data, dates, selectedRegion)
-        .filter(e => !regionsToPullToCountryLevel.includes(e.region)); // also filter our Hong Kong and Macau as subregions of Mainland China
-      }
-
-      let exclusions = ['Cruise Ship', 'Diamond Princess'];
-
-      let renames = {
-        'Taiwan*': 'Taiwan',
-        'Korea, South': 'South Korea',
-        'China': 'China (Mainland)'
-      };
+      let grouped = this.groupByCountry(data, dates);
 
       let covidData = [];
       for (let row of grouped){
-
-        if (!exclusions.includes(row.region)) {
           const arr = [];
           for (let date of dates) {
             arr.push(row[date]);
           }
           let slope = arr.map((e,i,a) => e - a[i - 7]);
           let region = row.region
-
-          if (Object.keys(renames).includes(region)) {
-            region = renames[region];
-          }
 
           const cases = arr.map(e => e >= this.minCasesInCountry ? e : NaN);
           covidData.push({
@@ -401,7 +362,7 @@ let app = new Vue({
           });
 
         }
-      }
+
 
       this.covidData = covidData.filter(e => e.maxCases > this.minCasesInCountry);
       this.countries = this.covidData.map(e => e.country).sort();
@@ -420,21 +381,8 @@ let app = new Vue({
       }
 
       this.firstLoad = false;
+      console.log(this.covidData, this.countries);
 
-    },
-
-    preprocessNYTData(data, type) {
-      let recastData = {};
-      data.forEach(e => {
-        let st = recastData[e.state]  = (recastData[e.state] || {'Province/State': e.state, 'Country/Region': 'US', 'Lat': null, 'Long': null});
-        st[fixNYTDate(e.date)] = parseInt(e[type]);
-      });
-      return Object.values(recastData);
-
-      function fixNYTDate(date) {
-        let tmp = date.split('-');
-        return `${tmp[1]}/${tmp[2]}/${tmp[0].substr(2)}`;
-      }
     },
 
     formatDate(date) {
@@ -442,8 +390,7 @@ let app = new Vue({
         return '';
       }
 
-      let [m, d, y] = date.split('/');
-      return new Date(2000 + (+y), m-1, d).toISOString().slice(0, 10);
+      return new Date(date).toISOString().slice(0, 10);
     },
 
     // TODO: clean up play/pause logic
@@ -588,19 +535,7 @@ let app = new Vue({
     },
 
     regionType() {
-      switch (this.selectedRegion) {
-        case 'World':
-          return 'Countries';
-        case 'Australia':
-        case 'US':
-          return 'States';
-        case 'China':
-          return 'Provinces';
-        case 'Canada':
-          return 'Provinces';
-        default:
-          return 'Regions';
-      }
+      return "States"
     },
 
     layout() {
@@ -742,7 +677,7 @@ let app = new Vue({
 
     sliderSelected: false,
 
-    day: 7,
+    day: 4,
 
     icon: 'icons/play.svg',
 
@@ -750,7 +685,7 @@ let app = new Vue({
 
     selectedScale: 'Logarithmic Scale',
 
-    minCasesInCountry: 50,
+    minCasesInCountry: 0,
 
     dates: [],
 
